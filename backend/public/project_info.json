@@ -1,0 +1,7 @@
+{
+  "project_title": "School Enrollment & Literacy Trends in East Africa",  
+  "lecturer": "Male Vicent",
+  "description": "This dashboard presents a comprehensive data mining and business intelligence analysis of school enrollment and literacy trends across East African countries from 2010 to 2023, using World Bank Open Data. It covers primary, secondary and tertiary enrollment rates, adult and youth literacy rates, gender gaps in education, out-of-school children, school completion rates, and government education expenditure patterns.",
+  "data_source": "World Bank Open Data (data.worldbank.org)",
+  "year_range": "2010-2023"
+}

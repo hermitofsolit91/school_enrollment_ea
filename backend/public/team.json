@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Joel Kidima",
+    "student_number": "2400101359",
+    "index_number": "2024/AUG/BCDF/B236138/DAY",
+    "course": "BCDF",
+    "role": "Team Lead & Backend Developer"
+   
+  },
+  {
+    "name": "Awori Zaituna",
+    "student_number": "2400100402",
+    "index_number": "2024/AUG/BCDF/B236513/DAY",
+    "course": "BCDF",
+    "role": "Data Researcher"
+    
+  },
+  {
+    "name": "Kibazo Justine Kirabo",
+    "student_number": "2400100720",
+    "index_number": "2024/AUG/BCDF/B236408/DAY",
+    "course": "BCDF",
+    "role": "Data Visualization"
+    
+  },
+  {
+    "name": "Nattabi Gloria",
+    "student_number": "2400101350",
+    "index_number": "2024/AUG/BCDF/B237432/DAY",
+    "course": "BCDF",
+    "role": "Language specialist & Documentation"
+    
+  },
+  {
+     "name": "NANSEREKO ANGELA",
+    "student_number": "2300100028",
+    "index_number": "2023/AUG/BIST/B233660/DAY",
+    "course": "BIST",
+    "role": "Project coordinator"
+   
+  },
+  
+  {
+    "name": "Semuwemba Salim",
+    "student_number": "2400101767",
+    "index_number": "2024/AUG/BCDF/B237720/DAY",
+    "course": "BCDF",
+    "role": "Frontend Developer",
+    "photo": "/public/images/member_semuwemba.jpg"
+  }
+  
+]
