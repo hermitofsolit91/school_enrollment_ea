@@ -9,18 +9,15 @@ import {
   YAxis,
 } from "recharts";
 import { ENDPOINTS } from "../constants/api";
-import { COUNTRY_FLAGS, type CountryName, DEFAULT_COUNTRY_SELECTION } from "../constants/countries";
+import { type CountryName } from "../constants/countries";
 import { useApi } from "../hooks/useApi";
 import { fmt } from "../utils/formatNumber";
-import ErrorCard from "./ui/ErrorCard";
-import LoadingSkeleton from "./ui/LoadingSkeleton";
-import CountrySelector from "./ui/CountrySelector";
-import YearSelector from "./ui/YearSelector";
 import { asRows, field } from "./sectionHelpers";
+import "../styles/dashboard.css";
 
 const METRICS = [
   ["primary_enrollment_rate", "Primary Enrollment Rate"],
-  ["adult_literacy_rate", "Adult Literacy Rate"],
+  ["unified_literacy", "Comprehensive Literacy Rate"],
   ["secondary_enrollment_rate", "Secondary Enrollment"],
   ["tertiary_enrollment_rate", "Tertiary Enrollment"],
   ["primary_completion_rate", "Primary Completion Rate"],
@@ -29,10 +26,14 @@ const METRICS = [
   ["govt_education_expenditure", "Govt Education Expenditure"],
 ] as const;
 
-export default function RankingsSection() {
+interface RankingsSectionProps {
+  selectedCountries: CountryName[];
+  selectedYears: number[];
+}
+
+export default function RankingsSection({ selectedCountries, selectedYears }: RankingsSectionProps) {
   const [metric, setMetric] = useState<(typeof METRICS)[number][0]>(METRICS[0][0]);
-  const [year, setYear] = useState(2023);
-  const [countries, setCountries] = useState<CountryName[]>(DEFAULT_COUNTRY_SELECTION);
+  const year = selectedYears[selectedYears.length - 1] || 2023;
 
   const rankApi = useApi<unknown>(ENDPOINTS.ranking(metric, year));
   const prevApi = useApi<unknown>(ENDPOINTS.ranking(metric, Math.max(2010, year - 1)));
@@ -53,8 +54,8 @@ export default function RankingsSection() {
           change: value - (prevMap.get(country) ?? value),
         };
       })
-      .filter((r) => countries.includes(r.country as CountryName));
-  }, [rows, prevRows, metric, countries]);
+      .filter((r) => selectedCountries.includes(r.country as CountryName));
+  }, [rows, prevRows, metric, selectedCountries]);
 
   const sortedRows = [...filtered].sort((a, b) => a.rank - b.rank);
   const metricLabel = METRICS.find(([key]) => key === metric)?.[1] ?? "Selected metric";
@@ -64,105 +65,75 @@ export default function RankingsSection() {
     [sortedRows],
   );
 
-  const loading = rankApi.loading || prevApi.loading;
-  const error = rankApi.error ?? prevApi.error;
-
   return (
-    <section id="rankings" className="section reveal">
-      <div className="section-head">
-        <h2>Country Rankings</h2>
-        <div className="controls-row">
-          <CountrySelector selected={countries} onChange={setCountries} />
-          <div className="metric-select">
-            <label htmlFor="metric-select">Metric</label>
-            <select
-              id="metric-select"
-              value={metric}
-              onChange={(e) => setMetric(e.target.value as (typeof METRICS)[number][0])}
-            >
-              {METRICS.map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+    <div className="section">
+      <div className="section-title-wrap">
+        <h2>Country Rankings Analysis</h2>
+      </div>
+
+      <div className="chart-main-area">
+        <div className="flex flex-col gap-6">
+          <div className="flex gap-4">
+             <select
+                id="metric-select-global"
+                value={metric}
+                onChange={(e) => setMetric(e.target.value as (typeof METRICS)[number][0])}
+                className="chart-select-professional"
+              >
+                {METRICS.map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
           </div>
-          <YearSelector mode="single" year={year} onYearChange={setYear} />
+
+          <div className="chart-container">
+            <h3 className="mb-4">{metricLabel} Performance ({year})</h3>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sortedRows} layout="vertical" margin={{ left: 40 }}>
+                <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" />
+                <XAxis type="number" tick={{ fill: '#64748b' }} />
+                <YAxis type="category" dataKey="country" width={110} tick={{ fill: '#64748b' }} />
+                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="value" fill="url(#rankGradient)" radius={[0, 6, 6, 0]} isAnimationActive />
+                <defs>
+                  <linearGradient id="rankGradient" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stopColor="#1B4F72" />
+                    <stop offset="100%" stopColor="#F39C12" />
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
-      {loading && <LoadingSkeleton lines={8} height={16} />}
-      {error && <ErrorCard message={error} />}
-
-      {!loading && !error && (
-        <div className="chart-grid">
-          <article className="glass-card chart-card span-2">
-            <h3>Animated Ranking Bars</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={380}>
-                <BarChart data={sortedRows} layout="vertical" margin={{ left: 40 }}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="country" width={110} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="url(#rankGradient)" radius={[0, 6, 6, 0]} isAnimationActive />
-                  <defs>
-                    <linearGradient id="rankGradient" x1="0" x2="1" y1="0" y2="0">
-                      <stop offset="0%" stopColor="#1B4F72" />
-                      <stop offset="100%" stopColor="#F39C12" />
-                    </linearGradient>
-                  </defs>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card chart-card span-2">
-            <h3>Ranking Table</h3>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Rank</th>
-                    <th>Country</th>
-                    <th>Value</th>
-                    <th>Change from Previous Year</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedRows.map((row) => {
-                    const badge = row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : "";
-                    const flag = COUNTRY_FLAGS[row.country as CountryName] ?? "";
-                    return (
-                      <tr key={row.country}>
-                        <td>{row.rank}</td>
-                        <td>
-                          {badge} {flag} {row.country}
-                        </td>
-                        <td>{fmt(row.value, 2)}</td>
-                        <td>{row.change >= 0 ? `↑ ${fmt(row.change, 2)}` : `↓ ${fmt(Math.abs(row.change), 2)}`}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </article>
-
-          <article className="glass-card insight-card span-2">
-            <p>
-              🏆 {leader
-                ? `${leader.country} leads ${metricLabel.toLowerCase()} in ${year} with a value of ${fmt(leader.value, 2)}.`
-                : "No ranking leader is available for this filter."}
-            </p>
-            <p>
-              🔄 {biggestImprover
-                ? `${biggestImprover.country} shows the strongest year-on-year shift at ${biggestImprover.change >= 0 ? `+${fmt(biggestImprover.change, 2)}` : fmt(biggestImprover.change, 2)}.`
-                : "No year-on-year change statistic is available for this filter."}
-            </p>
-          </article>
+      <div className="chart-explanation-sidebar">
+        <div className="explanation-block">
+          <div className="explanation-title">Rankings Leader</div>
+          <p className="explanation-text">
+            {leader
+              ? `${leader.country} leads the region in ${metricLabel.toLowerCase()} for ${year} with a score of ${fmt(leader.value, 2)}.`
+              : "Rankings help visualize relative performance across diverse metrics."}
+          </p>
         </div>
-      )}
-    </section>
+
+        <div className="explanation-block">
+          <div className="explanation-title">Dynamic Shifts</div>
+          <p className="explanation-text">
+            {biggestImprover
+              ? `${biggestImprover.country} shows the most significant shift at ${biggestImprover.change >= 0 ? `+${fmt(biggestImprover.change, 2)}` : fmt(biggestImprover.change, 2)} units.`
+              : "Tracking shifts over time reveals the impact of educational policies."}
+          </p>
+        </div>
+        
+        <div className="explanation-block mt-auto">
+          <p className="explanation-text text-sm font-semibold text-primary">
+            Settings: Following global year ({year}).
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

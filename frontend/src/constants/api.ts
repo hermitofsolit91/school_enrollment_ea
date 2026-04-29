@@ -24,7 +24,8 @@ export const EP = {
     `${BASE}/api/enrollment${p({ countries, year })}`,
   literacy: (countries?: string, year?: number) =>
     `${BASE}/api/literacy${p({ countries, year })}`,
-  trend: (countries: string) => `${BASE}/api/trend${p({ countries })}`,
+  trend: (countries: string, indicator: string = "primary_enrollment_rate") => 
+    `${BASE}/api/trend${p({ countries, indicator })}`,
   genderGap: (countries?: string, year?: number) =>
     `${BASE}/api/gender-gap${p({ countries, year })}`,
   outOfSchool: (countries?: string, year?: number) =>

@@ -23,6 +23,14 @@ export const COUNTRY_FLAGS = Object.fromEntries(
   COUNTRIES.map((c) => [c.name, c.flag]),
 ) as Record<CountryName, string>;
 
+export const NAME_TO_ISO = Object.fromEntries(
+  COUNTRIES.map((c) => [c.name, c.iso]),
+) as Record<CountryName, string>;
+
+export const ISO_TO_NAME = Object.fromEntries(
+  COUNTRIES.map((c) => [c.iso, c.name]),
+) as Record<string, CountryName>;
+
 export const DEFAULT_COUNTRY_SELECTION = [...COUNTRY_NAMES] as CountryName[];
 
 export function normalizeSelectedCountries(selected: string[]): CountryName[] {

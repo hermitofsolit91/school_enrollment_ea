@@ -5,9 +5,8 @@ import type {
   ClusterData,
   CountryTrends,
   RegressionResult,
-  GenderGapResult,
-  ForecastData,
   HealthStatus,
+  ForecastData,
 } from "../types";
 
 const API_BASE = "http://localhost:8000/api";
@@ -59,13 +58,76 @@ export const apiClient = {
     return response.data;
   },
 
-  getGenderGapData: async (): Promise<GenderGapResult> => {
-    const response = await client.get<GenderGapResult>("/models/gender-gap");
+  getGenderGapData: async (countries?: string): Promise<any[]> => {
+    const response = await client.get<any[]>("/gender-gap", {
+      params: countries ? { countries } : {},
+    });
     return response.data;
   },
 
   getForecastData: async (): Promise<ForecastData[]> => {
     const response = await client.get<ForecastData[]>("/models/forecast");
+    return response.data;
+  },
+
+  // New endpoints for dashboard filters
+  getTrendData: async (countries?: string, indicator?: string): Promise<any[]> => {
+    const response = await client.get<any[]>("/trend", {
+      params: {
+        ...(countries ? { countries } : {}),
+        ...(indicator ? { indicator } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  getEnrollmentData: async (countries?: string, year?: number): Promise<any[]> => {
+    const response = await client.get<any[]>("/enrollment", {
+      params: {
+        ...(countries ? { countries } : {}),
+        ...(year ? { year } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  getLiteracyData: async (countries?: string, year?: number): Promise<any[]> => {
+    const response = await client.get<any[]>("/literacy", {
+      params: {
+        ...(countries ? { countries } : {}),
+        ...(year ? { year } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  getOutOfSchoolData: async (countries?: string, year?: number): Promise<any[]> => {
+    const response = await client.get<any[]>("/out-of-school", {
+      params: {
+        ...(countries ? { countries } : {}),
+        ...(year ? { year } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  getCompletionData: async (countries?: string, year?: number): Promise<any[]> => {
+    const response = await client.get<any[]>("/completion", {
+      params: {
+        ...(countries ? { countries } : {}),
+        ...(year ? { year } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  getExpenditureData: async (countries?: string, year?: number): Promise<any[]> => {
+    const response = await client.get<any[]>("/expenditure", {
+      params: {
+        ...(countries ? { countries } : {}),
+        ...(year ? { year } : {}),
+      },
+    });
     return response.data;
   },
 };

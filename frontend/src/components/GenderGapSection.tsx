@@ -1,32 +1,30 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { ENDPOINTS } from "../constants/api";
-import { DEFAULT_COUNTRY_SELECTION, countriesToParam, type CountryName } from "../constants/countries";
+import { countriesToParam, type CountryName } from "../constants/countries";
 import { useApi } from "../hooks/useApi";
 import { pct } from "../utils/formatNumber";
-import ErrorCard from "./ui/ErrorCard";
-import LoadingSkeleton from "./ui/LoadingSkeleton";
-import CountrySelector from "./ui/CountrySelector";
-import YearSelector from "./ui/YearSelector";
-import { asRows, countryColor, field } from "./sectionHelpers";
+import { asRows, field } from "./sectionHelpers";
+import "../styles/dashboard.css";
 
-export default function GenderGapSection() {
-  const [countries, setCountries] = useState<CountryName[]>(DEFAULT_COUNTRY_SELECTION);
-  const [year, setYear] = useState(2023);
-  const countriesParam = countriesToParam(countries);
+interface GenderGapSectionProps {
+  selectedCountries: CountryName[];
+  selectedYears: number[];
+}
+
+export default function GenderGapSection({ selectedCountries, selectedYears }: GenderGapSectionProps) {
+  const countriesParam = countriesToParam(selectedCountries);
+  const year = selectedYears[selectedYears.length - 1] || 2023;
 
   const snapshotApi = useApi<unknown>(ENDPOINTS.genderGap(countriesParam, year));
-  const trendApi = useApi<unknown>(ENDPOINTS.trend(countriesParam));
 
   const rows = useMemo(() => asRows<Record<string, unknown>>(snapshotApi.data), [snapshotApi.data]);
   const ranking = useMemo(
@@ -34,95 +32,60 @@ export default function GenderGapSection() {
       [...rows]
         .map((r) => ({
           country: String(r.country ?? "N/A"),
-          male: field(r, ["male", "youth_male_literacy"]),
-          female: field(r, ["female", "youth_female_literacy"]),
-          gap: field(r, ["gender_gap", "gap"]),
+          male: field(r, ["literacy_rate_youth_male", "male"]),
+          female: field(r, ["literacy_rate_youth_female", "female"]),
+          gap: field(r, ["gap", "gender_gap"]),
         }))
         .sort((a, b) => b.gap - a.gap),
     [rows],
   );
-  const trendRows = useMemo(() => asRows<Record<string, unknown>>(trendApi.data), [trendApi.data]);
 
   const largest = ranking[0];
   const parity = [...ranking].sort((a, b) => Math.abs(a.gap) - Math.abs(b.gap))[0];
 
-  const loading = snapshotApi.loading || trendApi.loading;
-  const error = snapshotApi.error ?? trendApi.error;
-
   return (
-    <section id="gender-gap" className="section reveal">
-      <div className="section-head">
+    <div className="section">
+      <div className="section-title-wrap">
         <h2>Gender Gap in Education</h2>
-        <div className="controls-row">
-          <CountrySelector selected={countries} onChange={setCountries} />
-          <YearSelector mode="single" year={year} onYearChange={setYear} />
+      </div>
+
+      <div className="chart-main-area">
+        <div className="chart-container">
+          <h3 className="mb-4">Gender Literacy Gap Ranking ({year})</h3>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={ranking} layout="vertical" margin={{ left: 32 }}>
+              <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" />
+              <XAxis type="number" domain={[-100, 100]} tick={{ fill: '#64748b' }} />
+              <YAxis type="category" dataKey="country" width={95} tick={{ fill: '#64748b' }} />
+              <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+              <Bar dataKey="female" fill="#E56B8A" radius={[0, 6, 6, 0]} name="Female Literacy" />
+              <Bar dataKey="male" fill="#2E86C1" radius={[0, 6, 6, 0]} name="Male Literacy" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {loading && <LoadingSkeleton lines={8} height={16} />}
-      {error && <ErrorCard message={error} />}
-
-      {!loading && !error && (
-        <div className="chart-grid">
-          <article className="glass-card chart-card span-2">
-            <h3>Male vs Female Youth Literacy - Selected Year</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={ranking} layout="vertical" margin={{ left: 32 }}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis type="number" domain={[-100, 100]} />
-                  <YAxis type="category" dataKey="country" width={95} />
-                  <Tooltip />
-                  <Bar dataKey="female" fill="#E56B8A" radius={[0, 6, 6, 0]} />
-                  <Bar dataKey="male" fill="#2E86C1" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card chart-card">
-            <h3>Gender Literacy Gap Trend Over Time</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={trendRows}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis dataKey="year" />
-                  <YAxis />
-                  <Tooltip />
-                  {countries.map((country) => (
-                    <Line
-                      key={country}
-                      dataKey={`${country}_gender_gap`}
-                      stroke={countryColor(country)}
-                      dot={false}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card chart-card">
-            <h3>Gender Gap Ranking - Selected Year</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={ranking}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis dataKey="country" tick={{ fontSize: 11 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="gap" fill="#C0392B" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card insight-card span-2">
-            <p>⚠️ {largest ? `${largest.country} has the largest gender gap at ${pct(largest.gap)} in ${year}.` : "N/A"}</p>
-            <p>✅ {parity ? `${parity.country} has achieved near gender parity at ${pct(parity.gap)}.` : "N/A"}</p>
-          </article>
+      <div className="chart-explanation-sidebar">
+        <div className="explanation-block">
+          <div className="explanation-title">Gender Disparity</div>
+          <p className="explanation-text">
+            {largest ? `${largest.country} has the largest gender gap at ${pct(largest.gap)} in ${year}.` : "Gender parity is a key goal for inclusive development."}
+          </p>
         </div>
-      )}
-    </section>
+
+        <div className="explanation-block">
+          <div className="explanation-title">Progress Indicators</div>
+          <p className="explanation-text">
+            {parity ? `${parity.country} has achieved near gender parity at ${pct(parity.gap)}.` : "Tracking gaps helps identify where targeted interventions are needed."}
+          </p>
+        </div>
+        
+        <div className="explanation-block mt-auto">
+           <p className="explanation-text text-sm font-semibold text-primary">
+            Sync: Following sidebar filters.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,171 +1,92 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceLine,
   ResponsiveContainer,
-  Scatter,
-  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  Legend
 } from "recharts";
 import { ENDPOINTS } from "../constants/api";
-import { DEFAULT_COUNTRY_SELECTION, countriesToParam, type CountryName } from "../constants/countries";
+import { countriesToParam, type CountryName, NAME_TO_ISO, ISO_TO_NAME } from "../constants/countries";
 import { useApi } from "../hooks/useApi";
-import ErrorCard from "./ui/ErrorCard";
-import LoadingSkeleton from "./ui/LoadingSkeleton";
-import CountrySelector from "./ui/CountrySelector";
-import YearSelector from "./ui/YearSelector";
-import { asRows, countryColor, field, yearInRange } from "./sectionHelpers";
+import { asRows, countryColor } from "./sectionHelpers";
+import "../styles/dashboard.css";
 
-export default function ExpenditureSection() {
-  const [countries, setCountries] = useState<CountryName[]>(DEFAULT_COUNTRY_SELECTION);
-  const [startYear, setStartYear] = useState(2010);
-  const [endYear, setEndYear] = useState(2023);
+interface ExpenditureSectionProps {
+  selectedCountries: CountryName[];
+  selectedYears: number[];
+}
 
-  const countriesParam = countriesToParam(countries);
-  const expenditureApi = useApi<unknown>(ENDPOINTS.expenditure(countriesParam));
-  const trendApi = useApi<unknown>(ENDPOINTS.trend(countriesParam));
+export default function ExpenditureSection({ selectedCountries, selectedYears }: ExpenditureSectionProps) {
+  const countriesParam = countriesToParam(selectedCountries);
+  const expenditureApi = useApi<any[]>(ENDPOINTS.trend(countriesParam, "govt_education_expenditure"));
 
-  const spendRows = useMemo(
-    () => asRows<Record<string, unknown>>(expenditureApi.data).filter((r) => yearInRange(Number(r.year), startYear, endYear)),
-    [expenditureApi.data, startYear, endYear],
-  );
-
-  const latestYear = useMemo(
-    () => spendRows.reduce((max, row) => Math.max(max, Number(row.year ?? 0)), 2010),
-    [spendRows],
-  );
-
-  const rankRows = useMemo(
-    () =>
-      spendRows
-        .filter((r) => Number(r.year) === latestYear)
-        .map((r) => ({
-          country: String(r.country ?? "N/A"),
-          value: field(r, ["govt_education_expenditure", "expenditure"]),
-        }))
-        .sort((a, b) => b.value - a.value),
-    [spendRows, latestYear],
-  );
-
-  const scatterRows = useMemo(() => {
-    const trend = asRows<Record<string, unknown>>(trendApi.data);
-    return spendRows.map((row) => {
-      const country = String(row.country ?? "N/A");
-      const year = Number(row.year ?? 0);
-      const match = trend.find((t) => String(t.country ?? "") === country && Number(t.year ?? 0) === year);
-      return {
-        country,
-        x: field(row, ["govt_education_expenditure", "expenditure"]),
-        y: match ? field(match, ["primary_enrollment_rate", "primary_enrollment"]) : 0,
-      };
+  const transformedData = useMemo(() => {
+    if (!expenditureApi.data || !Array.isArray(expenditureApi.data)) return [];
+    const yearMap: Record<number, any> = {};
+    expenditureApi.data.forEach(item => {
+      const yr = Number(item.year);
+      if (!yearMap[yr]) yearMap[yr] = { year: yr };
+      const iso = NAME_TO_ISO[item.country as CountryName] || item.iso3 || item.country;
+      yearMap[yr][iso] = item.value;
     });
-  }, [spendRows, trendApi.data]);
+    return Object.values(yearMap)
+      .filter(d => selectedYears.includes(d.year))
+      .sort((a, b) => a.year - b.year);
+  }, [expenditureApi.data, selectedYears]);
 
-  const topSpender = rankRows[0];
-  const strongestSpendEnrollmentPoint = useMemo(
-    () => [...scatterRows].sort((a, b) => b.y - a.y)[0],
-    [scatterRows],
-  );
-
-  const loading = expenditureApi.loading || trendApi.loading;
-  const error = expenditureApi.error ?? trendApi.error;
+  const selectedIsos = selectedCountries.map(c => NAME_TO_ISO[c]);
 
   return (
-    <section id="expenditure" className="section reveal">
-      <div className="section-head">
+    <div className="section">
+      <div className="section-title-wrap">
         <h2>Government Education Expenditure</h2>
-        <div className="controls-row">
-          <CountrySelector selected={countries} onChange={setCountries} />
-          <YearSelector
-            mode="range"
-            startYear={startYear}
-            endYear={endYear}
-            onRangeChange={(s, e) => {
-              setStartYear(s);
-              setEndYear(e);
-            }}
-          />
+      </div>
+
+      <div className="chart-main-area">
+        <div className="chart-container">
+          <h3 className="mb-6 uppercase font-black text-primary tracking-tighter">Expenditure as % of GDP</h3>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={transformedData}>
+              <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="year" tick={{ fill: '#64748b' }} axisLine={false} />
+              <YAxis tick={{ fill: '#64748b' }} axisLine={false} />
+              <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }} />
+              <Legend iconType="circle" />
+              {selectedIsos.map((iso3) => (
+                <Line
+                  key={iso3}
+                  dataKey={iso3}
+                  name={iso3}
+                  stroke={countryColor(ISO_TO_NAME[iso3] || iso3)}
+                  strokeWidth={4}
+                  dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                  type="monotone"
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {loading && <LoadingSkeleton lines={9} height={16} />}
-      {error && <ErrorCard message={error} />}
-
-      {!loading && !error && (
-        <div className="chart-grid">
-          <article className="glass-card chart-card span-2">
-            <h3>Education Spending as % of GDP Over Time</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={340}>
-                <LineChart data={spendRows}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis dataKey="year" />
-                  <YAxis />
-                  <Tooltip />
-                  {countries.map((country) => (
-                    <Line
-                      key={country}
-                      dataKey={`${country}_expenditure`}
-                      stroke={countryColor(country)}
-                      dot={false}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card chart-card">
-            <h3>Education Spending Ranking - Latest Year</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart layout="vertical" data={rankRows} margin={{ left: 30 }}>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="country" width={90} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#F39C12" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card chart-card">
-            <h3>Education Spending vs Primary Enrollment</h3>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={300}>
-                <ScatterChart>
-                  <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                  <XAxis dataKey="x" name="expenditure" />
-                  <YAxis dataKey="y" name="primary enrollment" />
-                  <Tooltip cursor={{ strokeDasharray: "3 3" }} />
-                  <Scatter data={scatterRows} fill="#1B4F72" />
-                  <ReferenceLine y={80} stroke="#27AE60" strokeDasharray="4 3" />
-                </ScatterChart>
-              </ResponsiveContainer>
-            </div>
-          </article>
-
-          <article className="glass-card insight-card span-2">
-            <p>
-              💰 {topSpender
-                ? `${topSpender.country} is the top education spender in ${latestYear} at ${topSpender.value.toFixed(2)}% of GDP.`
-                : "No expenditure ranking statistic is available for this filter."}
-            </p>
-            <p>
-              📈 {strongestSpendEnrollmentPoint
-                ? `${strongestSpendEnrollmentPoint.country} reaches the strongest primary enrollment point in this range at ${strongestSpendEnrollmentPoint.y.toFixed(1)}%.`
-                : "No spending-enrollment relationship statistic is available for this filter."}
-            </p>
-          </article>
+      <div className="chart-explanation-sidebar">
+        <div className="explanation-block">
+          <div className="explanation-title">Fiscal Investment</div>
+          <p className="explanation-text">
+            Investment in education as a percentage of GDP highlights the relative priority of education in national budgets.
+          </p>
         </div>
-      )}
-    </section>
+
+        <div className="explanation-block">
+          <div className="explanation-title">Analysis Range</div>
+          <p className="explanation-text">
+            The chart covers {selectedYears.length} years of data for the selected countries.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

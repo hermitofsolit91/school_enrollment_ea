@@ -16,6 +16,15 @@ router = APIRouter(prefix="/api", tags=["data"])
 def health_check():
     """Health check endpoint with dataset metadata"""
     df = get_cached_data()
+    
+    if df.empty:
+        return {
+            "status": "ok",
+            "countries": 0,
+            "years": "N/A",
+            "warning": "No data loaded - data file may be missing"
+        }
+    
     years_min = int(df["year"].min())
     years_max = int(df["year"].max())
     
@@ -209,15 +218,22 @@ def get_public_info():
     }
 
 @router.get("/trend")
-def get_trend(countries: Optional[str] = Query("all")):
+def get_trend(
+    countries: Optional[str] = Query("all"),
+    indicator: str = Query("primary_enrollment_rate")
+):
     df = get_cached_data()
     if countries != "all":
         iso_codes = [c.strip() for c in countries.split(",")]
         country_names = [name for name, info in COUNTRY_INFO.items() if info["iso3"] in iso_codes]
         df = df[df["country"].isin(country_names)]
     
-    df = df.dropna(subset=["primary_enrollment_rate"])
-    result = dataframe_to_records(df.groupby(["country", "year"])["primary_enrollment_rate"].mean().reset_index())
+    if indicator not in df.columns:
+        # Fallback to a valid column if misspelled
+        indicator = "primary_enrollment_rate"
+
+    df = df.dropna(subset=[indicator])
+    result = dataframe_to_records(df.groupby(["country", "year"])[indicator].mean().reset_index())
     
     # Add iso3, lat, lng to each record
     for record in result:
@@ -225,6 +241,7 @@ def get_trend(countries: Optional[str] = Query("all")):
         record["iso3"] = info.get("iso3")
         record["lat"] = info.get("lat")
         record["lng"] = info.get("lng")
+        record["value"] = record[indicator] # Map the dynamic indicator to a common 'value' key
     
     return result
 
@@ -237,7 +254,6 @@ def get_enrollment(countries: Optional[str] = Query("all"), year: Optional[int] 
         df = df[df["country"].isin(country_names)]
     
     df = df[df["year"] == year]
-    df = df.dropna(subset=["primary_enrollment_rate", "secondary_enrollment_rate"])
     result = dataframe_to_records(df[["country", "primary_enrollment_rate", "secondary_enrollment_rate"]])
     
     # Add iso3, lat, lng to each record
@@ -258,7 +274,7 @@ def get_literacy(countries: Optional[str] = Query("all"), year: Optional[int] = 
         df = df[df["country"].isin(country_names)]
     
     df = df[df["year"] == year]
-    df = df.dropna(subset=["literacy_rate_adult", "literacy_rate_youth_male", "literacy_rate_youth_female"])
+    # Return all available literacy data for the year
     result = dataframe_to_records(df[["country", "literacy_rate_adult", "literacy_rate_youth_male", "literacy_rate_youth_female"]])
     
     # Add iso3, lat, lng to each record
@@ -281,8 +297,8 @@ def get_completion(countries: Optional[str] = Query("all"), year: Optional[int] 
     if year:
         df = df[df["year"] == year]
         
-    df = df.dropna(subset=["primary_completion_rate", "lower_secondary_completion"])
-    result = dataframe_to_records(df[["country", "year", "primary_completion_rate", "lower_secondary_completion"]])
+    cols = ["country", "year", "primary_completion_rate", "lower_secondary_completion", "primary_enrollment_rate", "secondary_enrollment_rate", "literacy_rate_adult"]
+    result = dataframe_to_records(df[cols])
     
     # Add iso3, lat, lng to each record
     for record in result:
@@ -302,8 +318,7 @@ def get_gender_gap(countries: Optional[str] = Query("all"), year: Optional[int] 
         df = df[df["country"].isin(country_names)]
     
     df = df[df["year"] == year]
-    df = df.dropna(subset=["literacy_rate_youth_male", "literacy_rate_youth_female"])
-    df["gap"] = df["literacy_rate_youth_male"] - df["literacy_rate_youth_female"]
+    df["gap"] = df["literacy_rate_youth_male"].fillna(0) - df["literacy_rate_youth_female"].fillna(0)
     result = dataframe_to_records(df[["country", "literacy_rate_youth_male", "literacy_rate_youth_female", "gap"]])
     
     # Add iso3, lat, lng to each record
@@ -324,7 +339,6 @@ def get_out_of_school(countries: Optional[str] = Query("all"), year: Optional[in
         df = df[df["country"].isin(country_names)]
     
     df = df[df["year"] == year]
-    df = df.dropna(subset=["out_of_school_primary", "out_of_school_female"])
     result = dataframe_to_records(df[["country", "out_of_school_primary", "out_of_school_female"]])
     
     # Add iso3, lat, lng to each record

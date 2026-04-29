@@ -6,11 +6,44 @@ import {
   Popup,
 } from "react-leaflet";
 import L from "leaflet";
+import "leaflet.heat";
+import "leaflet/dist/leaflet.css";
+import { useMap } from "react-leaflet";
+import { Layers, Map as MapIcon, Zap } from "lucide-react";
 import { apiClient } from "../../utils/api";
 import type { MapDataPoint, ClusterData, Indicator } from "../../types";
 import { INDICATOR_LABELS } from "../../types";
 import { CLUSTER_COLORS, interpolateTealColor } from "../../utils/colorScale";
 import { formatPercent } from "../../utils/numbers";
+import { type CountryName } from "../../constants/countries";
+
+// Heatmap Sub-component
+const HeatmapLayer = ({ data }: { data: [number, number, number][] }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!data || data.length === 0) return;
+
+    const heatLayer = (L as any).heatLayer(data, {
+      radius: 40,
+      blur: 25,
+      maxZoom: 10,
+      gradient: {
+        0.0: '#3B82F6', // Blue (Low)
+        0.5: '#10B981', // Green
+        1.0: '#EF4444'  // Red (High)
+      }
+    }).addTo(map);
+
+    return () => {
+      if (map && heatLayer) {
+        map.removeLayer(heatLayer);
+      }
+    };
+  }, [data, map]);
+
+  return null;
+};
 
 // Leaflet default icon fix
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -23,53 +56,54 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
 
-interface CountrySpotlight {
-  iso3: string;
-  country_name: string;
-  flag_emoji: string;
-  cluster: string;
-  literacy_rate: number;
-  completion_rate: number;
-  govt_expenditure: number;
+interface ChoroplethMapProps {
+  indicator: string;
+  selectedCountries: CountryName[];
+  selectedYears: number[];
 }
 
-export const ChoroplethMap: React.FC = () => {
+export const ChoroplethMap: React.FC<ChoroplethMapProps> = ({
+  indicator: indicatorProp,
+  selectedCountries,
+  selectedYears,
+}) => {
   const [mapData, setMapData] = useState<MapDataPoint[]>([]);
   const [clusterData, setClusterData] = useState<ClusterData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [indicator, setIndicator] = useState<string>("primary_enrollment_rate");
-  const [year, setYear] = useState(2020);
-  const [mapMode, setMapMode] = useState<"value" | "cluster">("value");
-  const [spotlight, setSpotlight] = useState<CountrySpotlight | null>(null);
+  const [mapMode, setMapMode] = useState<"value" | "cluster" | "heatmap">("heatmap");
 
-  const indicators = [
-    "primary_enrollment_rate",
-    "secondary_enrollment_rate",
-    "literacy_rate",
-    "completion_rate",
-    "govt_expenditure",
-  ] as const;
+  const year = selectedYears[selectedYears.length - 1] || 2023;
+  
+  const indicator = useMemo(() => {
+    if (indicatorProp === "enrollment") return "primary_enrollment_rate";
+    if (indicatorProp === "literacy") return "unified_literacy";
+    if (indicatorProp === "completion") return "primary_completion_rate";
+    if (indicatorProp === "gender-gap") return "gender_literacy_gap";
+    return indicatorProp;
+  }, [indicatorProp]);
 
-  // Fetch map data
+  const heatmapPoints = useMemo((): [number, number, number][] => {
+    return mapData
+      .filter(p => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude))
+      .filter(p => selectedCountries.includes(p.country_name as CountryName))
+      .map(p => [
+        p.latitude, 
+        p.longitude, 
+        Math.min(1, Math.max(0, p.value / 100))
+      ]);
+  }, [mapData, selectedCountries]);
+
   useEffect(() => {
     const fetchMapData = async () => {
       try {
         setLoading(true);
         const data = await apiClient.getMapData({ indicator, year });
-        console.log("API Response: /api/map-data", data);
-        if (data && data[0]) {
-          console.log("First country lat/lng:", data[0].latitude, data[0].longitude);
-        }
         setMapData(data);
         setError(null);
       } catch (err: any) {
-        const message = err?.response?.status === 404
-          ? "API endpoint not found (404) at /api/map-data - ensure backend is running"
-          : err?.message || "Failed to load map data";
-        setError(message);
-        console.error("ChoroplethMap error:", err);
+        setError(err?.message || "Failed to load map data");
       } finally {
         setLoading(false);
       }
@@ -78,28 +112,18 @@ export const ChoroplethMap: React.FC = () => {
     fetchMapData();
   }, [indicator, year]);
 
-  // Fetch cluster data (once)
   useEffect(() => {
     const fetchClusterData = async () => {
       try {
         const data = await apiClient.getClusteringData();
-        console.log("API Response: /api/models/clustering", data);
-        if (data && data[0]) {
-          console.log("First cluster lat/lng:", data[0].latitude, data[0].longitude);
-        }
         setClusterData(data);
       } catch (err: any) {
-        const message = err?.response?.status === 404
-          ? "API endpoint not found (404) at /api/models/clustering - ensure backend is running"
-          : err?.message || "Failed to load cluster data";
-        console.error("ChoroplethMap cluster error:", message, err);
+        console.error("Failed to load cluster data", err);
       }
     };
-
     fetchClusterData();
   }, []);
 
-  // Calculate min/max for color scaling
   const { minValue, maxValue } = useMemo(() => {
     if (mapData.length === 0) return { minValue: 0, maxValue: 100 };
     const values = mapData.map((d) => d.value);
@@ -109,313 +133,129 @@ export const ChoroplethMap: React.FC = () => {
     };
   }, [mapData]);
 
-  const getCircleColor = (value: number): string => {
-    return interpolateTealColor(value, minValue, maxValue);
-  };
+  const getCircleColor = (value: number): string => interpolateTealColor(value, minValue, maxValue);
+  const getRadius = (value: number): number => Math.max(10, Math.min(30, (value / (maxValue || 100)) * 30));
+  const getClusterColor = (cluster: string): string => CLUSTER_COLORS[cluster] || "#9FE1CB";
 
-  const getRadius = (value: number): number => {
-    return Math.max(10, Math.min(30, value / 10));
-  };
-
-  const getClusterColor = (cluster: string): string => {
-    return CLUSTER_COLORS[cluster] || "#9FE1CB";
-  };
-
-  const handleCircleClick = async (point: MapDataPoint) => {
-    try {
-      const trends = await apiClient.getCountryTrends(point.iso3);
-      setSpotlight({
-        iso3: point.iso3,
-        country_name: point.country_name,
-        flag_emoji: point.flag_emoji,
-        cluster: "High Performer", // TODO: get from trends
-        literacy_rate: trends.literacy_rate_latest,
-        completion_rate: trends.completion_rate_latest,
-        govt_expenditure: trends.govt_expenditure_latest,
-      });
-    } catch (err) {
-      console.error("Failed to load spotlight", err);
-    }
-  };
-
-  if (loading)
-    return <div className="text-center py-8 text-gray-500">Loading map...</div>;
-  if (error)
-    return <div className="text-center py-8 text-red-500">{error}</div>;
+  if (loading) return <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-gray-100 text-gray-400">Loading Map Intelligence...</div>;
+  if (error) return <div className="text-center py-20 bg-white rounded-2xl shadow-sm border border-red-100 text-red-500">{error}</div>;
 
   return (
-    <div className="mb-8">
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4 bg-white p-4 rounded-lg border border-gray-200">
-        <div className="flex-1">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Indicator
-          </label>
-          <select
-            value={indicator}
-            onChange={(e) => setIndicator(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500"
-          >
-            {indicators.map((ind) => (
-              <option key={ind} value={ind}>
-                {INDICATOR_LABELS[ind]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex-1">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Year: {year}
-          </label>
-          <input
-            type="range"
-            min="2010"
-            max="2023"
-            value={year}
-            onChange={(e) => setYear(parseInt(e.target.value))}
-            className="w-full"
-          />
-        </div>
-
-        <div className="flex-1">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            View
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMapMode("value")}
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded transition ${
-                mapMode === "value"
-                  ? "bg-teal-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              Value Map
-            </button>
-            <button
-              onClick={() => setMapMode("cluster")}
-              className={`flex-1 px-3 py-2 text-sm font-medium rounded transition ${
-                mapMode === "cluster"
-                  ? "bg-teal-600 text-white"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              Cluster Map
-            </button>
+    <div className="w-full">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-3xl font-black text-primary uppercase tracking-tighter leading-none mb-2">Regional Intelligence</h2>
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1 bg-accent/20 text-accent text-[10px] font-black rounded-full uppercase tracking-widest">{year}</span>
+            <span className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">{INDICATOR_LABELS[indicator as Indicator] || indicator}</span>
           </div>
+        </div>
+        
+        {/* Modern Map Mode Switcher */}
+        <div className="bg-slate-100 p-1 rounded-2xl flex gap-1 shadow-inner border border-slate-200">
+          {[
+            { id: "value", label: "Value", icon: MapIcon },
+            { id: "cluster", label: "Cluster", icon: Layers },
+            { id: "heatmap", label: "Heatmap", icon: Zap },
+          ].map((mode) => {
+            const Icon = mode.icon;
+            const isActive = mapMode === mode.id;
+            return (
+              <button
+                key={mode.id}
+                onClick={() => setMapMode(mode.id as any)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl transition-all duration-300 ${
+                  isActive
+                    ? "bg-white text-primary shadow-lg scale-[1.02] translate-y-[-1px]"
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/50"
+                }`}
+              >
+                <Icon size={14} className={isActive ? "text-accent" : "text-slate-400"} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{mode.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Map Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Left Panel */}
-        <div className="lg:col-span-1 bg-teal-50 rounded-lg p-4 border border-teal-200">
-          <h3 className="font-bold text-gray-900 mb-3">Reading the Map</h3>
-          <div className="space-y-3 text-sm">
-            <p className="text-gray-700">
-              <strong>Circle Size:</strong> Larger circles indicate higher values
-              for the selected indicator.
-            </p>
-            <p className="text-gray-700">
-              <strong>Color:</strong> Darker teal = higher performance; lighter
-              teal = lower.
-            </p>
-            <p className="text-gray-700">
-              <strong>Interaction:</strong> Click any country circle to see
-              detailed stats.
-            </p>
-            <p className="text-gray-700">
-              <strong>Year Slider:</strong> Move left/right to view historical
-              data.
-            </p>
+      <div className="map-container-wrapper shadow-2xl border-8 border-white overflow-hidden rounded-[3rem] h-[650px] relative bg-slate-50">
+        <MapContainer
+          center={[1.5, 35]}
+          zoom={5}
+          style={{ width: "100%", height: "100%" }}
+          zoomControl={false}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap'
+          />
+
+          {mapMode === "value" && mapData
+            .filter(p => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude))
+            .filter(p => selectedCountries.includes(p.country_name as CountryName))
+            .map((point) => (
+              <CircleMarker
+                key={point.iso3}
+                center={[point.latitude, point.longitude]}
+                radius={getRadius(point.value)}
+                fillColor={getCircleColor(point.value)}
+                color={getCircleColor(point.value)}
+                weight={3}
+                opacity={0.9}
+                fillOpacity={0.7}
+              >
+                <Popup>
+                  <div className="p-3 text-center">
+                    <p className="font-black text-xl text-primary mb-1">{point.country_name}</p>
+                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-2">
+                      {INDICATOR_LABELS[indicator as Indicator] || indicator}
+                    </p>
+                    <div className="text-3xl font-black text-primary">
+                      {formatPercent(point.value)}
+                    </div>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+
+          {mapMode === "cluster" && clusterData
+            .filter(p => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude))
+            .filter(p => selectedCountries.includes(p.country_name as CountryName))
+            .map((point) => (
+              <CircleMarker
+                key={point.iso3}
+                center={[point.latitude, point.longitude]}
+                radius={20}
+                fillColor={getClusterColor(point.cluster)}
+                color={getClusterColor(point.cluster)}
+                weight={3}
+                opacity={0.9}
+                fillOpacity={0.7}
+              >
+                <Popup>
+                  <div className="p-3 text-center">
+                    <p className="font-black text-lg">{point.country_name}</p>
+                    <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Cluster</p>
+                    <p className="font-black text-accent text-xl">{point.cluster}</p>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+
+          {mapMode === "heatmap" && <HeatmapLayer data={heatmapPoints} />}
+        </MapContainer>
+
+        {/* Legend for Heatmap */}
+        {mapMode === "heatmap" && (
+          <div className="absolute bottom-10 right-10 bg-white/95 backdrop-blur-xl p-6 rounded-[2rem] shadow-2xl z-[1000] border border-white/20 scale-110">
+            <p className="text-[10px] font-black uppercase tracking-widest mb-3 text-gray-400">Heat Intensity</p>
+            <div className="flex items-center gap-6">
+              <span className="text-[10px] font-black text-blue-500">LOW</span>
+              <div className="w-40 h-3 rounded-full bg-gradient-to-r from-blue-500 via-green-500 to-red-500 shadow-inner"></div>
+              <span className="text-[10px] font-black text-red-500">HIGH</span>
+            </div>
           </div>
-        </div>
-
-        {/* Map */}
-        <div className="lg:col-span-2">
-          <div className="h-[450px] rounded-lg border border-gray-300 shadow-md overflow-hidden">
-            <MapContainer
-              center={[1.5, 35]}
-              zoom={5}
-              style={{ width: "100%", height: "100%" }}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; OpenStreetMap contributors'
-              />
-
-              {mapMode === "value"
-                ? mapData
-                    .filter(
-                      (point) =>
-                        point.latitude !== undefined &&
-                        point.latitude !== null &&
-                        point.longitude !== undefined &&
-                        point.longitude !== null &&
-                        !isNaN(point.latitude) &&
-                        !isNaN(point.longitude)
-                    )
-                    .map((point) => (
-                      <CircleMarker
-                        key={point.iso3}
-                        center={[point.latitude, point.longitude]}
-                        radius={getRadius(point.value)}
-                        fillColor={getCircleColor(point.value)}
-                        color={getCircleColor(point.value)}
-                        weight={2}
-                        opacity={0.8}
-                        fillOpacity={0.6}
-                        eventHandlers={{
-                          click: () => handleCircleClick(point),
-                        }}
-                      >
-                      <Popup>
-                        <div className="text-sm">
-                          <p className="font-bold">
-                            {point.flag_emoji} {point.country_name}
-                          </p>
-                          <p className="text-gray-600">
-                            {INDICATOR_LABELS[indicator as Indicator]}
-                          </p>
-                          <p className="font-semibold text-teal-700">
-                            {formatPercent(point.value)}
-                          </p>
-                          <p className="text-xs text-gray-500">Year: {year}</p>
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  ))
-                : clusterData
-                    .filter(
-                      (point) =>
-                        point.latitude !== undefined &&
-                        point.latitude !== null &&
-                        point.longitude !== undefined &&
-                        point.longitude !== null &&
-                        !isNaN(point.latitude) &&
-                        !isNaN(point.longitude)
-                    )
-                    .map((point) => (
-                      <CircleMarker
-                        key={point.iso3}
-                        center={[point.latitude, point.longitude]}
-                        radius={18}
-                        fillColor={getClusterColor(point.cluster)}
-                        color={getClusterColor(point.cluster)}
-                        weight={2}
-                        opacity={0.8}
-                        fillOpacity={0.6}
-                        eventHandlers={{
-                          click: () =>
-                            setSpotlight({
-                              iso3: point.iso3,
-                              country_name: point.country_name,
-                              flag_emoji: point.flag_emoji,
-                              cluster: point.cluster,
-                              literacy_rate: 0,
-                              completion_rate: 0,
-                              govt_expenditure: 0,
-                            }),
-                        }}
-                      >
-                      <Popup>
-                        <div className="text-sm">
-                          <p className="font-bold">
-                            {point.flag_emoji} {point.country_name}
-                          </p>
-                          <p className="text-gray-600">Cluster</p>
-                          <p className="font-semibold">{point.cluster}</p>
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  ))}
-            </MapContainer>
-          </div>
-
-          {/* Color Legend */}
-          {mapMode === "value" && (
-            <div className="mt-4 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
-              <span className="text-xs font-semibold text-gray-600">Low</span>
-              <div className="flex-1 flex gap-1 mx-3">
-                {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-                  <div
-                    key={t}
-                    className="h-4 flex-1"
-                    style={{
-                      backgroundColor: interpolateTealColor(
-                        minValue + (maxValue - minValue) * t,
-                        minValue,
-                        maxValue
-                      ),
-                    }}
-                  />
-                ))}
-              </div>
-              <span className="text-xs font-semibold text-gray-600">High</span>
-            </div>
-          )}
-
-          {/* Cluster Legend */}
-          {mapMode === "cluster" && (
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {Object.entries(CLUSTER_COLORS).map(([cluster, color]) => (
-                <div
-                  key={cluster}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-200"
-                >
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-xs font-medium text-gray-700">
-                    {cluster}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Spotlight */}
-        <div className="lg:col-span-1">
-          {spotlight ? (
-            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-lg p-4 border border-teal-300">
-              <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <span className="text-2xl">{spotlight.flag_emoji}</span>
-                {spotlight.country_name}
-              </h3>
-
-              <div className="mb-3 px-3 py-1 bg-teal-200 text-teal-900 rounded text-xs font-semibold inline-block">
-                {spotlight.cluster}
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="bg-white rounded p-2">
-                  <p className="text-gray-600 text-xs">Literacy Rate</p>
-                  <p className="font-bold text-teal-700">
-                    {formatPercent(spotlight.literacy_rate)}
-                  </p>
-                </div>
-                <div className="bg-white rounded p-2">
-                  <p className="text-gray-600 text-xs">Completion Rate</p>
-                  <p className="font-bold text-teal-700">
-                    {formatPercent(spotlight.completion_rate)}
-                  </p>
-                </div>
-                <div className="bg-white rounded p-2">
-                  <p className="text-gray-600 text-xs">Govt Expenditure</p>
-                  <p className="font-bold text-teal-700">
-                    ${(spotlight.govt_expenditure / 1e6).toFixed(1)}M
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-100 rounded-lg p-4 border border-gray-300 text-center">
-              <p className="text-sm text-gray-600">
-                Click a country circle to view detailed stats.
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

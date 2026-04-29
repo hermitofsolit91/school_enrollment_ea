@@ -99,6 +99,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-body); /* Using professional sans-serif for everything as requested */
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
 #root {
   min-height: 100vh;
   display: flex;
@@ -216,7 +227,7 @@ a:hover {
 .navbar {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1000; /* High z-index to stay above map and other components */
   background: var(--color-white);
   border-bottom: 1px solid var(--color-gray-200);
   box-shadow: var(--shadow-md);
@@ -439,17 +450,30 @@ a:hover {
   z-index: 2;
 }
 
-/* Hero Content */
-.hero-content {
+/* Hero Content Wrapper */
+.hero-content-wrapper {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: var(--space-8);
+}
+
+.hero-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
   color: var(--color-white);
-  max-width: 800px;
-  width: 90%;
+  max-width: 900px;
 }
 
 .hero-text {
@@ -468,11 +492,12 @@ a:hover {
 }
 
 .hero-title {
-  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
   line-height: 1.1;
   margin-bottom: var(--space-4);
   font-weight: 800;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
 .hero-subtitle {
@@ -480,11 +505,12 @@ a:hover {
   margin-bottom: var(--space-2);
   font-weight: 500;
   letter-spacing: 0.5px;
+  opacity: 0.95;
 }
 
 .hero-meta {
   font-size: var(--font-size-sm);
-  opacity: 0.9;
+  opacity: 0.8;
   margin-bottom: var(--space-8);
 }
 
@@ -494,19 +520,20 @@ a:hover {
   gap: var(--space-2);
   background: var(--color-accent);
   color: var(--color-primary);
-  padding: var(--space-4) var(--space-8);
-  font-weight: 600;
+  padding: var(--space-4) var(--space-10);
+  font-weight: 700;
   border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   transition: all var(--transition-base);
   font-size: var(--font-size-lg);
+  box-shadow: 0 10px 20px rgba(255, 183, 3, 0.3);
 }
 
 .hero-cta:hover {
   background: var(--color-accent-dark);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px rgba(255, 183, 3, 0.4);
 }
 
 .cta-arrow {
@@ -518,103 +545,151 @@ a:hover {
   transform: translateX(4px);
 }
 
+/* Team Overlay Styles */
+.hero-team-overlay {
+  width: 100%;
+  max-width: 1200px;
+  margin-top: auto;
+  padding-bottom: var(--space-12);
+  animation: fadeIn 1.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.team-header-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.team-line {
+  height: 1px;
+  background: rgba(255,255,255,0.2);
+  flex: 1;
+  max-width: 100px;
+}
+
+.team-label {
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+  color: var(--color-accent);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.team-pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.team-pill-glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-2);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  transition: all var(--transition-base);
+  cursor: default;
+}
+
+.team-pill-glass:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.pill-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--color-accent);
+  color: var(--color-primary);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.pill-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pill-name {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+.pill-role {
+  font-size: 8px;
+  color: var(--color-gray-400);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
 /* Dot Indicators */
 .hero-dots {
   position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 4;
   display: flex;
+  flex-direction: column;
   gap: var(--space-3);
 }
 
 .dot {
-  width: 12px;
-  height: 12px;
+  width: 8px;
+  height: 8px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.3);
   border: none;
   cursor: pointer;
   transition: all var(--transition-base);
 }
 
-.dot:hover {
-  background: rgba(255, 255, 255, 0.7);
-}
-
 .dot.active {
   background: var(--color-accent);
-  width: 32px;
-  border-radius: var(--radius-full);
-}
-
-/* Scroll Indicator */
-.hero-scroll-indicator {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4;
-  text-align: center;
-  color: var(--color-white);
-  animation: bounce 2s infinite;
-}
-
-.scroll-text {
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-1);
-  opacity: 0.8;
-}
-
-.scroll-icon {
-  font-size: var(--font-size-xl);
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
+  height: 24px;
 }
 
 @media (max-width: 768px) {
-  .hero-section {
-    height: 60vh;
-    min-height: 400px;
+  .hero-main-content {
+    max-width: 100%;
   }
 
   .hero-title {
-    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-size: 2.5rem;
   }
 
-  .hero-subtitle {
-    font-size: var(--font-size-base);
+  .hero-team-overlay {
+    padding-bottom: var(--space-6);
   }
 
-  .hero-meta {
-    font-size: var(--font-size-xs);
+  .team-pills-container {
+    gap: var(--space-2);
   }
 
-  .hero-cta {
-    padding: var(--space-3) var(--space-6);
-    font-size: var(--font-size-base);
+  .team-pill-glass {
+    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
   }
 
   .hero-dots {
-    bottom: 30px;
-  }
-
-  .dot {
-    width: 10px;
-    height: 10px;
-  }
-
-  .dot.active {
-    width: 28px;
+    right: 20px;
   }
 }
 

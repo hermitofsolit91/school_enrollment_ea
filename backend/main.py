@@ -15,12 +15,15 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     df = load_data()
-    logging.info(
-        "Loaded %s records across %s countries from %s",
-        len(df),
-        df["country"].nunique(),
-        os.getenv("DATA_PATH", "./data/education_ea_clean.csv"),
-    )
+    if len(df) > 0:
+        logging.info(
+            "Loaded %s records across %s countries from %s",
+            len(df),
+            df["country"].nunique(),
+            os.getenv("DATA_PATH", "./data/education_ea_clean.csv"),
+        )
+    else:
+        logging.warning("No data loaded. Data file may be missing.")
     yield
 
 
@@ -43,7 +46,9 @@ app.add_middleware(
 )
 
 # Mount public static files
-app.mount("/public", StaticFiles(directory="./public"), name="public")
+public_dir = os.path.join(os.path.dirname(__file__), "public")
+if os.path.exists(public_dir):
+    app.mount("/public", StaticFiles(directory=public_dir), name="public")
 
 @app.get("/")
 def root():

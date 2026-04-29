@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALL_COUNTRIES_LABEL,
   COUNTRY_NAMES,
-  COUNTRY_FLAGS,
   type CountryName,
   isAllCountriesSelected,
   normalizeSelectedCountries,
@@ -61,7 +60,7 @@ export default function CountrySelector({ selected: selectedProp, selectedCountr
               checked={allChecked}
               onChange={(e) => toggleAll(e.target.checked)}
             />
-            <span>✅ {ALL_COUNTRIES_LABEL}</span>
+            <span>{ALL_COUNTRIES_LABEL}</span>
           </label>
 
           <div className="selector-scroll">
@@ -73,7 +72,7 @@ export default function CountrySelector({ selected: selectedProp, selectedCountr
                   onChange={(e) => toggleCountry(country, e.target.checked)}
                 />
                 <span>
-                  {COUNTRY_FLAGS[country]} {country}
+                  {country}
                 </span>
               </label>
             ))}
@@ -89,7 +88,7 @@ export default function CountrySelector({ selected: selectedProp, selectedCountr
         {normalized.map((country) => (
           <ChipTag
             key={country}
-            label={`${COUNTRY_FLAGS[country]} ${country}`}
+            label={country}
             onRemove={() => onChange(normalized.filter((c) => c !== country))}
           />
         ))}

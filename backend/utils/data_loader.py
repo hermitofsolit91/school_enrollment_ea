@@ -3,10 +3,14 @@ import os
 import pandas as pd
 from typing import Optional
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
-DATA_PATH = os.getenv("DATA_PATH", "./data/education_ea_clean.csv")
+# Resolve data path relative to backend directory
+BACKEND_DIR = Path(__file__).parent.parent
+DEFAULT_DATA_PATH = BACKEND_DIR / "data" / "education_ea_clean.csv"
+DATA_PATH = os.getenv("DATA_PATH", str(DEFAULT_DATA_PATH))
 
 # 7 East African countries from World Bank data
 FOCUS_COUNTRIES = {
@@ -52,6 +56,10 @@ def load_data() -> pd.DataFrame:
     """Load and clean CSV data with forward fill for missing values"""
     global _df_cache
     
+    if not os.path.exists(DATA_PATH):
+        print(f"WARNING: Data file not found at {DATA_PATH}. Returning empty DataFrame.")
+        return pd.DataFrame()
+    
     df = pd.read_csv(DATA_PATH)
     
     # Filter to 7 focus countries
@@ -66,6 +74,8 @@ def load_data() -> pd.DataFrame:
             )
     
     # Compute derived indicators
+    df["unified_literacy"] = df["literacy_rate_adult"].fillna(df["literacy_rate_youth_male"]).fillna(df["literacy_rate_youth_female"])
+    
     df["gender_literacy_gap"] = (
         df["literacy_rate_youth_male"] - df["literacy_rate_youth_female"]
     )
@@ -109,7 +119,7 @@ def replace_nan_with_null(obj):
 
 
 def dataframe_to_records(df: pd.DataFrame, replace_nan=True) -> list:
-    """Convert DataFrame to list of dicts, optionally replacing NaN with None"""
+   
     records = df.where(pd.notnull(df), None).to_dict(orient="records")
     if replace_nan:
         records = replace_nan_with_null(records)

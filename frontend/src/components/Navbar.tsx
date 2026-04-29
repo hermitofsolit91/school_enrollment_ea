@@ -10,9 +10,6 @@ interface NavLink {
 
 const NAV_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
-  { label: "Dashboard", href: "/dashboard", isRoute: true },
-  { label: "Analysis", href: "#literacy" },
-  { label: "About", href: "#about" },
 ];
 
 export default function Navbar() {
