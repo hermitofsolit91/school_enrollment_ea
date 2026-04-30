@@ -12,7 +12,7 @@ import {
 import { ENDPOINTS } from "../constants/api";
 import { countriesToParam, type CountryName, NAME_TO_ISO, ISO_TO_NAME } from "../constants/countries";
 import { useApi } from "../hooks/useApi";
-import { asRows, countryColor } from "./sectionHelpers";
+import { countryColor } from "./sectionHelpers";
 import "../styles/dashboard.css";
 
 interface ExpenditureSectionProps {

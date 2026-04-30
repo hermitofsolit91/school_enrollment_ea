@@ -63,7 +63,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
       <div className="filter-content">
         {/* Countries Filter */}
         <div className="filter-group">
-          <Globe className="filter-icon-only" size={24} title="Countries" />
+          <Globe className="filter-icon-only" size={24} aria-label="Countries" />
           {isExpanded && (
             <>
               <div className="flex justify-between items-center mb-1">
@@ -99,7 +99,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
         {/* Age Group Filter */}
         <div className="filter-group">
-          <Users className="filter-icon-only" size={24} title="Age Group" />
+          <Users className="filter-icon-only" size={24} aria-label="Age Group" />
           {isExpanded && (
             <>
               <h3 className="filter-group-title">Age Group</h3>
@@ -120,7 +120,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
         {/* Years Filter */}
         <div className="filter-group">
-          <Calendar className="filter-icon-only" size={24} title="Years" />
+          <Calendar className="filter-icon-only" size={24} aria-label="Years" />
           {isExpanded && (
             <>
               <div className="flex justify-between items-center mb-1">
@@ -156,7 +156,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
         {/* Analysis Type */}
         <div className="filter-group">
-          <BarChart3 className="filter-icon-only" size={24} title="Analysis Type" />
+          <BarChart3 className="filter-icon-only" size={24} aria-label="Analysis Type" />
           {isExpanded && (
             <>
               <h3 className="filter-group-title">Analysis Type</h3>

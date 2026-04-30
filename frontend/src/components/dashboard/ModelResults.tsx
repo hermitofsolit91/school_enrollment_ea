@@ -74,7 +74,11 @@ export const ModelResults: React.FC = () => {
         ]);
 
         setRegressionData(regression);
-        setGenderGapData(genderGap);
+        setGenderGapData(
+          Array.isArray(genderGap)
+            ? (genderGap[0]?.countries ? genderGap[0] : { countries: genderGap })
+            : genderGap
+        );
         setForecastData(forecast);
 
         console.log("API Response: /api/models/clustering", clusters);
