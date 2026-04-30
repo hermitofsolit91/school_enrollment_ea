@@ -31,8 +31,9 @@ export default function Navbar() {
           <div className="header-content">
             <h2 className="header-title">School Enrollment & Literacy in East Africa</h2>
             <p className="header-subtitle">
-              Data Mining & Business Intelligence Analysis · 2010-2023 · 7 Countries · World Bank Data
+              Data Mining &amp; Business Intelligence Analysis · 2010-2023 · 7 Countries · World Bank Data
             </p>
+
           </div>
         </div>
       </div>
@@ -43,10 +44,10 @@ export default function Navbar() {
           <div className="navbar-inner">
             {/* Logo */}
             <Link to="/" className="navbar-logo">
-              <img src="/favicon.svg" alt="EduData EA" className="logo-img" />
+              <img src="/logo.webp" alt="EduData EA" className="logo-img" style={{borderRadius:'6px',objectFit:'cover'}} />
               <div className="logo-text">
                 <div className="logo-name">EduData EA</div>
-                <div className="logo-sub">Nkumba University</div>
+                <div className="logo-sub">SCI-CITS · Nkumba University</div>
               </div>
             </Link>
 
