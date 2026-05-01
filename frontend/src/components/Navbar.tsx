@@ -44,7 +44,7 @@ export default function Navbar() {
           <div className="navbar-inner">
             {/* Logo */}
             <Link to="/" className="navbar-logo">
-              <img src="/logo.webp" alt="EduData EA" className="logo-img" style={{borderRadius:'6px',objectFit:'cover'}} />
+              <img src="/logo.png" alt="EduData EA" className="logo-img" style={{borderRadius:'6px',objectFit:'cover'}} />
               <div className="logo-text">
                 <div className="logo-name">EduData EA</div>
                 <div className="logo-sub">SCI-CITS · Nkumba University</div>
